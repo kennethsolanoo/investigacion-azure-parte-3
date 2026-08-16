@@ -5,8 +5,9 @@
   "main": "src/enviar-mensajes.js",
   "type": "module",
   "scripts": {
-    "start": "node src/enviar-mensajes.js",
-    "check": "node --check src/enviar-mensajes.js && node --check src/validar-mensajes-local.js",
+    "start": "node src/servidor.js",
+    "enviar:consola": "node src/enviar-mensajes.js",
+    "check": "node --check src/generador-mensajes.js && node --check src/enviar-azure.js && node --check src/enviar-mensajes.js && node --check src/servidor.js && node --check src/validar-mensajes-local.js && node --check public/app.js",
     "test:local": "node src/validar-mensajes-local.js"
   },
   "keywords": [
@@ -19,6 +20,7 @@
   "private": true,
   "dependencies": {
     "@azure/service-bus": "^7.9.5",
-    "dotenv": "^17.4.2"
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1"
   }
 }

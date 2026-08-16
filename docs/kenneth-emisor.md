@@ -13,7 +13,7 @@ Node.js v24.14.1
 npm 11.11.0
 ```
 
-La aplicacion utiliza Node.js como entorno de ejecucion, el paquete oficial `@azure/service-bus` para comunicarse con Azure Service Bus y `dotenv` para cargar variables de entorno desde un archivo local no versionado.
+La aplicacion utiliza Node.js como entorno de ejecucion, Express para servir una interfaz web local, el paquete oficial `@azure/service-bus` para comunicarse con Azure Service Bus y `dotenv` para cargar variables de entorno desde un archivo local no versionado.
 
 ## Dependencias instaladas
 
@@ -22,7 +22,8 @@ Las dependencias del emisor estan registradas en `sender/package.json` y `sender
 ```json
 "dependencies": {
   "@azure/service-bus": "^7.9.5",
-  "dotenv": "^17.4.2"
+  "dotenv": "^17.4.2",
+  "express": "^5.2.1"
 }
 ```
 
@@ -40,6 +41,37 @@ AZURE_SERVICE_BUS_QUEUE_NAME=academic-messages-queue
 La cadena de conexion debe pertenecer a una politica SAS con permiso unicamente `Send`. No debe utilizarse `RootManageSharedAccessKey`, porque esa politica otorga permisos administrativos que no son necesarios para una aplicacion que solo envia mensajes.
 
 El archivo `sender/.env` debe existir solo de forma local. No se incluye en Git y no debe aparecer en capturas, documento final ni repositorio.
+
+## Adaptacion con interfaz web
+
+La aplicacion fue ampliada con una interfaz web local que se abre en:
+
+```text
+http://localhost:3000
+```
+
+La arquitectura usada es sencilla:
+
+```text
+Navegador
+Servidor local Node.js/Express
+Azure Service Bus
+```
+
+El navegador nunca recibe la cadena de conexion. La credencial permanece en el backend y solo se utiliza cuando el usuario solicita un envio real.
+
+## Diferencia entre vista previa y envio real
+
+La interfaz tiene dos acciones principales:
+
+- `Generar vista previa`: genera cinco mensajes localmente y los muestra en la tabla. No se conecta a Azure ni envia mensajes reales.
+- `Enviar 5 mensajes a Azure`: queda deshabilitado mientras falte la configuracion SAS `Send`. Cuando exista la configuracion, el backend genera y envia exactamente cinco mensajes.
+
+El endpoint `GET /api/estado` solo indica si la configuracion requerida existe. No devuelve variables, fragmentos de conexion ni secretos.
+
+El endpoint `POST /api/vista-previa` reutiliza la generacion de mensajes del emisor y devuelve cinco mensajes para mostrarlos en la interfaz.
+
+El endpoint `POST /api/enviar` valida la configuracion antes de conectarse. Si falta la cadena SAS, responde con un error controlado y no intenta enviar.
 
 ## Conexion con Azure Service Bus
 
@@ -80,6 +112,8 @@ messageId: body.messageId
 
 Esto permite relacionar el mensaje que aparece en la consola del emisor con el mensaje que luego recibira la aplicacion receptora.
 
+La interfaz web muestra el mismo UUID generado para cada mensaje. En un envio real, ese UUID es tambien la propiedad `messageId` del mensaje enviado mediante Azure Service Bus.
+
 ## Envio consecutivo
 
 El emisor crea cinco mensajes y los envia uno por uno con `await sender.sendMessages(message)`. No se agregan pausas artificiales entre envios. Despues de cada operacion exitosa se muestra el numero del mensaje, el `messageId`, el asunto y una confirmacion de que Azure Service Bus acepto el envio.
@@ -114,17 +148,25 @@ npm.cmd start
 
 Las dos primeras verifican sintaxis y construccion local de mensajes. La prueba local confirma que se generan cinco mensajes con UUID diferentes y que el `messageId` del cuerpo coincide con la propiedad `messageId` del mensaje de Azure Service Bus.
 
-La ejecucion de `npm.cmd start` sin `sender/.env` real valida que el programa detecta variables faltantes y termina sin imprimir secretos.
+La ejecucion de `npm.cmd start` levanta la interfaz local. Sin una conexion SAS real, la pagina muestra `Azure no configurado`, permite generar una vista previa local y mantiene deshabilitado el envio real.
+
+La consola se conserva mediante:
+
+```powershell
+npm.cmd run enviar:consola
+```
+
+Sin `sender/.env` real, la consola valida que el programa detecta variables faltantes y termina sin imprimir secretos.
 
 ## Resultado real obtenido
 
-La implementacion quedo completada y las verificaciones locales se ejecutaron correctamente. La prueba real contra Azure Service Bus queda pendiente porque no hay una cadena de conexion real en `sender/.env` al momento de esta entrega.
+La implementacion quedo completada y las verificaciones locales se ejecutaron correctamente. La interfaz web se probo en modo local mostrando `Azure no configurado` y generando cinco mensajes de vista previa. La prueba real contra Azure Service Bus queda pendiente porque no hay una cadena de conexion real en `sender/.env` al momento de esta entrega.
 
 Cuando Kenneth coloque localmente la cadena SAS con permiso `Send`, debe ejecutar:
 
 ```powershell
 cd sender
-npm.cmd start
+npm.cmd run enviar:consola
 ```
 
 Si Azure acepta los cinco envios, la consola debe mostrar:
@@ -146,9 +188,11 @@ No se fabricaron evidencias. Cuando exista la conexion real, deben tomarse estas
 
 Durante esta parte no se conto con una cadena de conexion real de Azure Service Bus, por lo que no se realizo el envio contra el servicio. Para avanzar sin exponer credenciales, se implementaron verificaciones locales que comprueban la sintaxis, la validacion de variables y la generacion correcta de los cinco mensajes.
 
+Al adaptar la interfaz, se mantuvo separada la vista previa del envio real para evitar mensajes duplicados o intentos de conexion cuando Azure aun no esta configurado.
+
 ## Conclusiones parciales
 
-La aplicacion emisora quedo preparada para enviar cinco mensajes consecutivos con identificadores unicos. La separacion por variables de entorno permite mantener las credenciales fuera del repositorio, y el uso del mismo `messageId` en el cuerpo y en la propiedad del mensaje facilita comprobar posteriormente el flujo completo con el receptor.
+La aplicacion emisora quedo preparada para enviar cinco mensajes consecutivos con identificadores unicos desde consola o desde una interfaz web local. La separacion por variables de entorno permite mantener las credenciales fuera del repositorio, y el uso del mismo `messageId` en el cuerpo y en la propiedad del mensaje facilita comprobar posteriormente el flujo completo con el receptor.
 
 ## Uso de IA
 

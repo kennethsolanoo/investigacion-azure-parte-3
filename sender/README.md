@@ -1,6 +1,6 @@
 # Aplicacion emisora
 
-Aplicacion de consola en Node.js para enviar cinco mensajes consecutivos a una cola de Azure Service Bus.
+Aplicacion Node.js para generar cinco mensajes consecutivos y enviarlos a una cola de Azure Service Bus. Incluye una interfaz web local para probar la vista previa sin Azure y conserva el emisor de consola.
 
 ## Requisitos
 
@@ -40,7 +40,7 @@ AZURE_SERVICE_BUS_QUEUE_NAME=academic-messages-queue
 
 No usar `RootManageSharedAccessKey`. No publicar `sender/.env`, cadenas de conexion, claves SAS ni capturas donde aparezcan credenciales.
 
-## Ejecucion
+## Abrir la interfaz web
 
 Desde `sender/`:
 
@@ -48,10 +48,49 @@ Desde `sender/`:
 npm.cmd start
 ```
 
+La aplicacion queda disponible en:
+
+```text
+http://localhost:3000
+```
+
+Para detener el servidor, usar `Ctrl + C` en la terminal donde esta corriendo.
+
+## Usar la vista previa
+
+La vista previa funciona sin Azure:
+
+1. Abrir `http://localhost:3000`.
+2. Presionar `Generar vista previa`.
+3. Revisar los cinco mensajes generados localmente.
+
+La vista previa no envia mensajes reales a Azure. Sirve para comprobar el contrato, los UUID y los asuntos antes de contar con la conexion SAS.
+
+## Estado de Azure
+
+La interfaz muestra uno de estos estados:
+
+- `Azure no configurado`: falta una variable requerida, normalmente la cadena SAS `Send`.
+- `Azure listo para enviar`: existen las variables requeridas para intentar el envio desde el backend.
+
+El estado nunca muestra la cadena de conexion ni fragmentos de credenciales.
+
+## Enviar desde la interfaz
+
+El boton `Enviar 5 mensajes a Azure` solo queda habilitado cuando el backend detecta las variables requeridas. Si Azure aun no esta configurado, el boton permanece deshabilitado y la pagina permite probar solo la vista previa local.
+
+## Ejecutar el emisor de consola
+
+La aplicacion de consola se conserva con:
+
+```powershell
+npm.cmd run enviar:consola
+```
+
 O bien:
 
 ```powershell
-npm start
+npm run enviar:consola
 ```
 
 ## Resultado esperado
@@ -69,13 +108,13 @@ Al finalizar correctamente muestra:
 Resultado: 5 de 5 mensajes enviados correctamente.
 ```
 
-Para observar los cinco mensajes activos en Azure, el receptor debe permanecer detenido inicialmente. Despues de ejecutar el emisor, revisar la cola `academic-messages-queue` en Azure Portal antes de iniciar la aplicacion receptora.
+Para observar los cinco mensajes activos en Azure, el receptor debe permanecer detenido inicialmente. Despues de ejecutar el envio real, revisar la cola `academic-messages-queue` en Azure Portal antes de iniciar la aplicacion receptora.
 
 ## Repetir la prueba
 
 1. Verificar que `sender/.env` exista localmente y que la cadena sea del emisor con permiso `Send`.
 2. Mantener el receptor detenido.
-3. Ejecutar `npm.cmd start` desde `sender/`.
+3. Ejecutar `npm.cmd run enviar:consola` desde `sender/` o usar el boton de envio en la interfaz.
 4. Confirmar en consola los cinco `messageId`.
 5. Revisar en Azure Portal que los mensajes esten activos en la cola.
 
@@ -90,4 +129,4 @@ npm.cmd run check
 npm.cmd run test:local
 ```
 
-Si faltan variables de entorno, `npm.cmd start` debe terminar con un mensaje claro sin imprimir valores sensibles.
+Si faltan variables de entorno, la interfaz debe mostrar `Azure no configurado` y el comando `npm.cmd run enviar:consola` debe terminar con un mensaje claro sin imprimir valores sensibles.

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { createFiveMessages, validateEnvironment } from "./enviar-mensajes.js";
+import { createFiveMessages, validateEnvironment } from "./generador-mensajes.js";
 
 const messages = createFiveMessages();
 const messageIds = messages.map((message) => message.messageId);
