@@ -42,7 +42,7 @@ La cadena de conexion debe pertenecer a una politica SAS con permiso unicamente 
 
 El archivo `sender/.env` debe existir solo de forma local. No se incluye en Git y no debe aparecer en capturas, documento final ni repositorio.
 
-## Adaptacion con interfaz web
+## Adaptacion con interfaz web tipo mensajeria
 
 La aplicacion fue ampliada con una interfaz web local que se abre en:
 
@@ -50,7 +50,15 @@ La aplicacion fue ampliada con una interfaz web local que se abre en:
 http://localhost:3000
 ```
 
-La arquitectura usada es sencilla:
+La interfaz se rediseño como una aplicacion de mensajeria tipo telefono. La pantalla muestra a `Receptor Azure` como destinatario, identifica a Iván como aplicacion receptora y representa visualmente el flujo:
+
+```text
+Kenneth prepara 5 mensajes
+Azure Service Bus los almacena en una cola
+Iván los recibe posteriormente
+```
+
+La arquitectura tecnica sigue siendo sencilla:
 
 ```text
 Navegador
@@ -64,8 +72,8 @@ El navegador nunca recibe la cadena de conexion. La credencial permanece en el b
 
 La interfaz tiene dos acciones principales:
 
-- `Generar vista previa`: genera cinco mensajes localmente y los muestra en la tabla. No se conecta a Azure ni envia mensajes reales.
-- `Enviar 5 mensajes a Azure`: queda deshabilitado mientras falte la configuracion SAS `Send`. Cuando exista la configuracion, el backend genera y envia exactamente cinco mensajes.
+- `Preparar 5 mensajes`: genera cinco mensajes localmente y los muestra como burbujas salientes. No se conecta a Azure ni envia mensajes reales.
+- `Enviar lote a Azure`: queda deshabilitado mientras falte la configuracion SAS `Send`. Cuando exista la configuracion, el backend genera y envia exactamente cinco mensajes.
 
 El endpoint `GET /api/estado` solo indica si la configuracion requerida existe. No devuelve variables, fragmentos de conexion ni secretos.
 
@@ -112,7 +120,7 @@ messageId: body.messageId
 
 Esto permite relacionar el mensaje que aparece en la consola del emisor con el mensaje que luego recibira la aplicacion receptora.
 
-La interfaz web muestra el mismo UUID generado para cada mensaje. En un envio real, ese UUID es tambien la propiedad `messageId` del mensaje enviado mediante Azure Service Bus.
+La interfaz web muestra el asunto, descripcion, hora y estado de cada mensaje. Los UUID y campos internos no dominan la pantalla principal; quedan dentro de la opcion `Ver detalles tecnicos`. En un envio real, ese UUID es tambien la propiedad `messageId` del mensaje enviado mediante Azure Service Bus.
 
 ## Envio consecutivo
 
@@ -148,7 +156,7 @@ npm.cmd start
 
 Las dos primeras verifican sintaxis y construccion local de mensajes. La prueba local confirma que se generan cinco mensajes con UUID diferentes y que el `messageId` del cuerpo coincide con la propiedad `messageId` del mensaje de Azure Service Bus.
 
-La ejecucion de `npm.cmd start` levanta la interfaz local. Sin una conexion SAS real, la pagina muestra `Azure no configurado`, permite generar una vista previa local y mantiene deshabilitado el envio real.
+La ejecucion de `npm.cmd start` levanta la interfaz local. Sin una conexion SAS real, la pagina muestra `Modo local`, permite preparar una vista previa local y mantiene deshabilitado el envio real.
 
 La consola se conserva mediante:
 

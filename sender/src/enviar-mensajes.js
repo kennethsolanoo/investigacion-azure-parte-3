@@ -1,3 +1,8 @@
+/**
+ * Punto de entrada de consola del emisor.
+ * Conserva la prueba por terminal y reutiliza la misma lógica que usa el servidor web.
+ */
+
 import dotenv from "dotenv";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
@@ -21,6 +26,7 @@ async function sendMessages() {
 
   try {
     const result = await sendFiveMessagesToAzure(process.env, {
+      // La consola informa cada aceptación de Azure sin mostrar la cadena SAS.
       onMessageSent(message) {
         console.log(`Mensaje ${message.number} enviado correctamente.`);
         console.log(`messageId: ${message.messageId}`);

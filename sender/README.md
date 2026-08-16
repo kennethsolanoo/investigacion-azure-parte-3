@@ -1,6 +1,6 @@
 # Aplicacion emisora
 
-Aplicacion Node.js para generar cinco mensajes consecutivos y enviarlos a una cola de Azure Service Bus. Incluye una interfaz web local para probar la vista previa sin Azure y conserva el emisor de consola.
+Aplicacion Node.js para generar cinco mensajes consecutivos y enviarlos a una cola de Azure Service Bus. Incluye una interfaz web local tipo mensajeria para probar la vista previa sin Azure y conserva el emisor de consola.
 
 ## Requisitos
 
@@ -61,8 +61,9 @@ Para detener el servidor, usar `Ctrl + C` en la terminal donde esta corriendo.
 La vista previa funciona sin Azure:
 
 1. Abrir `http://localhost:3000`.
-2. Presionar `Generar vista previa`.
-3. Revisar los cinco mensajes generados localmente.
+2. Presionar `Preparar 5 mensajes`.
+3. Revisar las cinco burbujas generadas localmente.
+4. Abrir `Ver detalles tecnicos` cuando se necesite revisar UUID, fecha ISO y correspondencia entre `body.messageId` y `azure.messageId`.
 
 La vista previa no envia mensajes reales a Azure. Sirve para comprobar el contrato, los UUID y los asuntos antes de contar con la conexion SAS.
 
@@ -70,14 +71,14 @@ La vista previa no envia mensajes reales a Azure. Sirve para comprobar el contra
 
 La interfaz muestra uno de estos estados:
 
-- `Azure no configurado`: falta una variable requerida, normalmente la cadena SAS `Send`.
-- `Azure listo para enviar`: existen las variables requeridas para intentar el envio desde el backend.
+- `Modo local`: falta una variable requerida, normalmente la cadena SAS `Send`.
+- `Azure conectado`: existen las variables requeridas para intentar el envio desde el backend.
 
 El estado nunca muestra la cadena de conexion ni fragmentos de credenciales.
 
 ## Enviar desde la interfaz
 
-El boton `Enviar 5 mensajes a Azure` solo queda habilitado cuando el backend detecta las variables requeridas. Si Azure aun no esta configurado, el boton permanece deshabilitado y la pagina permite probar solo la vista previa local.
+El boton `Enviar lote a Azure` solo queda habilitado cuando el backend detecta las variables requeridas. Si Azure aun no esta configurado, el boton permanece deshabilitado y la pagina permite probar solo la vista previa local.
 
 ## Ejecutar el emisor de consola
 

@@ -1,3 +1,8 @@
+/**
+ * Servidor Express local del emisor.
+ * Sirve la interfaz web y expone endpoints seguros para vista previa y envío real.
+ */
+
 import express from "express";
 import dotenv from "dotenv";
 import path from "node:path";
@@ -17,6 +22,7 @@ app.use(express.json());
 app.use(express.static(publicDirectory));
 
 app.get("/api/estado", (_request, response) => {
+  // Solo se informa si la configuración existe; nunca se devuelve la conexión.
   const configured = isAzureConfigured();
 
   response.json({
@@ -26,6 +32,7 @@ app.get("/api/estado", (_request, response) => {
 });
 
 app.post("/api/vista-previa", (_request, response) => {
+  // La vista previa reutiliza el contrato, pero no crea ServiceBusClient ni toca Azure.
   const messages = createFiveMessageBodies();
 
   response.json({
@@ -54,7 +61,7 @@ app.post("/api/enviar", async (_request, response) => {
       sentCount: result.sentCount,
       total: result.total,
       results: result.results,
-      finalResult: `Resultado: ${result.sentCount} de ${result.total} mensajes enviados correctamente.`
+      finalResult: `${result.sentCount} de ${result.total} mensajes enviados a la cola.`
     });
   } catch (error) {
     const sentCount = Number.isInteger(error.sentCount) ? error.sentCount : 0;

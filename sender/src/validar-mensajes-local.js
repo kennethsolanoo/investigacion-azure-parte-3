@@ -1,3 +1,8 @@
+/**
+ * Verificación local del contrato del emisor.
+ * No se conecta a Azure; confirma que el lote se puede explicar y revisar sin credenciales.
+ */
+
 import assert from "node:assert/strict";
 import { createFiveMessages, validateEnvironment } from "./generador-mensajes.js";
 
@@ -9,6 +14,7 @@ assert.equal(messages.length, 5, "Deben generarse cinco mensajes.");
 assert.equal(uniqueMessageIds.size, 5, "Cada mensaje debe tener un UUID diferente.");
 
 for (const [index, message] of messages.entries()) {
+  // Esta validación asegura que el UUID del cuerpo coincide con el identificador usado por Azure.
   assert.equal(message.contentType, "application/json");
   assert.equal(message.messageId, message.body.messageId);
   assert.equal(message.body.sender, "AplicacionEmisora");

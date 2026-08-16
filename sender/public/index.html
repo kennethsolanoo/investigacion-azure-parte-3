@@ -4,60 +4,92 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Emisor de mensajes - Azure Service Bus</title>
+    <link rel="icon" href="data:,">
     <link rel="stylesheet" href="/styles.css">
   </head>
   <body>
-    <main class="app-shell">
-      <section class="panel" aria-labelledby="titulo-principal">
-        <header class="app-header">
-          <div>
-            <p class="eyebrow">Proyecto académico</p>
-            <h1 id="titulo-principal">Emisor de mensajes - Azure Service Bus</h1>
-            <p class="intro">Esta aplicación genera cinco mensajes consecutivos y puede enviarlos a una cola de Azure Service Bus.</p>
+    <main class="page-shell">
+      <section class="phone-app" aria-labelledby="conversation-title">
+        <!-- Barra superior de la conversación. -->
+        <header class="conversation-header">
+          <div class="receiver-avatar" aria-hidden="true">I</div>
+          <div class="receiver-copy">
+            <h1 id="conversation-title">Iván</h1>
+            <p>Receptor de mensajes</p>
           </div>
-          <div id="azure-status" class="status status-off" aria-live="polite">Azure no configurado</div>
+          <div class="header-actions">
+            <span id="connection-status" class="connection-pill local" aria-live="polite">Modo local</span>
+            <button id="info-button" class="icon-button" type="button" aria-label="Abrir información del envío">i</button>
+          </div>
         </header>
 
-        <div class="notice" role="note">La vista previa no envía mensajes reales a Azure.</div>
-
-        <div class="actions" aria-label="Acciones del emisor">
-          <button id="preview-button" type="button">Generar vista previa</button>
-          <button id="send-button" class="secondary" type="button" disabled>Enviar 5 mensajes a Azure</button>
-        </div>
-
-        <section class="summary" aria-label="Resultados">
-          <div>
-            <span class="summary-label">Generados</span>
-            <strong id="generated-count">0</strong>
+        <!-- Conversación principal. Lo técnico se mantiene fuera de este flujo visual. -->
+        <section id="conversation" class="conversation" aria-label="Conversación del lote de mensajes">
+          <div id="empty-state" class="empty-state">
+            <div class="empty-content">
+              <svg class="empty-icon" viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+                <path d="M10 14a10 10 0 0 1 10-10h8a10 10 0 0 1 10 10v5a10 10 0 0 1-10 10h-7.5l-8.2 6.1a1.4 1.4 0 0 1-2.3-1.1v-7.2A9.9 9.9 0 0 1 10 19v-5Z"></path>
+                <path d="M19 14h12M19 20h8"></path>
+              </svg>
+              <strong>Todavía no hay mensajes</strong>
+              <p>Prepara un lote de cinco mensajes para verlos aquí antes de enviarlos.</p>
+            </div>
+            <button id="empty-prepare-button" type="button">Preparar mensajes</button>
           </div>
-          <div>
-            <span class="summary-label">Enviados</span>
-            <strong id="sent-count">0</strong>
-          </div>
-          <p id="result-message" aria-live="polite">Genere una vista previa para revisar los mensajes antes de enviarlos.</p>
+          <div id="date-separator" class="date-separator" hidden>Hoy</div>
+          <div id="message-list" class="message-list" aria-live="polite"></div>
         </section>
 
-        <section class="table-wrap" aria-label="Mensajes generados">
-          <table>
-            <thead>
-              <tr>
-                <th scope="col">N.º</th>
-                <th scope="col">Asunto</th>
-                <th scope="col">UUID</th>
-                <th scope="col">Fecha y hora</th>
-                <th scope="col">Descripción</th>
-                <th scope="col">Estado</th>
-              </tr>
-            </thead>
-            <tbody id="messages-body">
-              <tr>
-                <td colspan="6" class="empty">No hay mensajes generados.</td>
-              </tr>
-            </tbody>
-          </table>
-        </section>
+        <!-- Barra inferior fija de acciones del lote. No hay campo libre porque el contrato define los mensajes. -->
+        <footer id="message-actions" class="message-actions" aria-label="Acciones del lote" hidden>
+          <p id="status-legend" aria-live="polite">Vista previa local · No enviado a Azure</p>
+          <div class="action-row">
+            <button id="prepare-button" type="button">Preparar otro lote</button>
+            <button id="send-button" class="send-button" type="button" disabled>Enviar 5 mensajes</button>
+          </div>
+        </footer>
       </section>
     </main>
+
+    <!-- Capa compartida para cerrar paneles con clic exterior. -->
+    <div id="sheet-backdrop" class="sheet-backdrop" hidden></div>
+
+    <!-- Panel inferior con la información académica del flujo. -->
+    <section id="info-sheet" class="bottom-sheet" role="dialog" aria-modal="true" aria-labelledby="info-title" hidden>
+      <header>
+        <h2 id="info-title">Información del envío</h2>
+        <button class="icon-button dark" type="button" data-close-sheet aria-label="Cerrar información">×</button>
+      </header>
+      <div class="sheet-content">
+        <p>Kenneth es el emisor. Azure Service Bus funciona como intermediario y la aplicación de Iván recibirá los mensajes posteriormente.</p>
+        <dl>
+          <div><dt>Estado de Azure</dt><dd id="info-azure-status">Modo local</dd></div>
+          <div><dt>Mensajes preparados</dt><dd id="info-prepared-count">0</dd></div>
+          <div><dt>Mensajes enviados a la cola</dt><dd id="info-queued-count">0</dd></div>
+          <div><dt>Última operación</dt><dd id="info-last-result">Vista previa local. Estos mensajes todavía no se han enviado a Azure.</dd></div>
+        </dl>
+        <h3>Vista previa local</h3>
+        <p>Permite revisar el lote sin conectarse con Azure ni generar mensajes reales en la cola.</p>
+        <h3>Contrato utilizado</h3>
+        <pre>{
+  "messageId": "uuid-v4",
+  "sentAt": "fecha ISO 8601",
+  "sender": "AplicacionEmisora",
+  "subject": "Mensaje 1 de 5",
+  "description": "Mensaje consecutivo enviado para demostrar Azure Service Bus.",
+  "createdBy": "Kenneth"
+}</pre>
+      </div>
+    </section>
+
+    <!-- Panel inferior con los detalles internos de una burbuja seleccionada. -->
+    <section id="message-sheet" class="bottom-sheet" role="dialog" aria-modal="true" aria-labelledby="message-title" hidden>
+      <header>
+        <h2 id="message-title">Detalles del mensaje</h2>
+        <button class="icon-button dark" type="button" data-close-sheet aria-label="Cerrar detalles">×</button>
+      </header>
+      <div id="message-detail-content" class="sheet-content"></div>
+    </section>
 
     <script type="module" src="/app.js"></script>
   </body>
