@@ -1,0 +1,24 @@
+{
+  "name": "azure-service-bus-sender",
+  "version": "1.0.0",
+  "description": "Aplicacion emisora academica para enviar cinco mensajes a Azure Service Bus.",
+  "main": "src/enviar-mensajes.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/enviar-mensajes.js",
+    "check": "node --check src/enviar-mensajes.js && node --check src/validar-mensajes-local.js",
+    "test:local": "node src/validar-mensajes-local.js"
+  },
+  "keywords": [
+    "azure",
+    "service-bus",
+    "sender"
+  ],
+  "author": "Kenneth",
+  "license": "UNLICENSED",
+  "private": true,
+  "dependencies": {
+    "@azure/service-bus": "^7.9.5",
+    "dotenv": "^17.4.2"
+  }
+}
