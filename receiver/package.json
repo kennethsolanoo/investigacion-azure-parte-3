@@ -1,0 +1,13 @@
+{
+  "name": "receiver-academic-messages",
+  "version": "1.0.0",
+  "description": "Aplicacion receptora de Azure Service Bus para la cola academic-messages-queue",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@azure/service-bus": "^7.9.4",
+    "dotenv": "^16.4.5"
+  }
+}
