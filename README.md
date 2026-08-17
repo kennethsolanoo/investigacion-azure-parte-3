@@ -39,6 +39,23 @@ Node.js v24.14.1
 
 Los integrantes deben documentar la version usada al ejecutar sus pruebas. En PowerShell, si `npm` queda bloqueado por la politica de ejecucion, usar `npm.cmd`.
 
+## Cambio de implementacion: Azure Service Bus Emulator local (Docker)
+
+Este proyecto se planteo originalmente contra un namespace real de Azure
+Service Bus en la nube. Para las pruebas del equipo se decidio usar el
+**Azure Service Bus Emulator** de Microsoft, ejecutado localmente mediante
+Docker, en lugar de un recurso de Azure en la nube. Esto significa que:
+
+- No se usa un namespace real de Azure ni Azure Portal.
+- No se generan ni usan claves SAS reales de Azure.
+- El flujo de trabajo (cola, envio, recepcion) es el mismo que en Azure Service Bus real; solo cambia donde se ejecuta.
+
+La configuracion de Docker y del emulador esta en
+[`shared/azure-service-bus-emulator/`](shared/azure-service-bus-emulator/README.md)
+y el detalle tecnico completo, incluyendo las diferencias frente a Azure
+Service Bus real, en
+[`docs/francisco-azure-integracion.md`](docs/francisco-azure-integracion.md).
+
 ## Seguridad
 
 - No subir archivos `.env`.

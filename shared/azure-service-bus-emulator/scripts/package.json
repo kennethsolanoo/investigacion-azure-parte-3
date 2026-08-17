@@ -1,0 +1,14 @@
+{
+  "name": "azure-service-bus-emulator-admin",
+  "version": "1.0.0",
+  "description": "Script de administracion/monitoreo del emulador local de Azure Service Bus (conteo de mensajes en academic-messages-queue).",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "contar": "node contar-mensajes.js"
+  },
+  "dependencies": {
+    "@azure/service-bus": "^7.9.5",
+    "dotenv": "^16.4.5"
+  }
+}
