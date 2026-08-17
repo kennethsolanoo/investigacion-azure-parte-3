@@ -4,7 +4,9 @@
   "description": "Aplicacion receptora de Azure Service Bus para la cola academic-messages-queue",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "check": "node --check index.js && node --check validator.js && node --check validar-mensajes-local.js",
+    "test:local": "node validar-mensajes-local.js"
   },
   "dependencies": {
     "@azure/service-bus": "^7.9.4",

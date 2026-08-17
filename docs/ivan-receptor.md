@@ -2,148 +2,172 @@
 
 ## Proposito
 
-La aplicacion receptora tiene como objetivo conectarse a Azure Service Bus, escuchar la cola `academic-messages-queue` y consumir los mensajes colocados por la aplicacion emisora (desarrollada por Kenneth). Esta parte demuestra el segundo tramo del flujo del proyecto: una aplicacion independiente recibe, valida y confirma el procesamiento de los mensajes generados por otro integrante del equipo.
+La aplicacion receptora escucha la cola `academic-messages-queue` de Azure Service Bus, valida los mensajes producidos por la aplicacion emisora de Kenneth y confirma el procesamiento de los mensajes validos. Esta seccion documenta la implementacion original del receptor publicada por Ivan y las correcciones tecnicas de integracion agregadas posteriormente en la rama local `correccion/integracion-final-equipo`.
 
-## Tecnologias y versiones utilizadas
+La prueba real con Azure todavia no se ha ejecutado en esta rama. Los resultados descritos aqui corresponden a pruebas locales sin credenciales.
 
-```text
-Node.js v24.19.0
-npm 11.17.0
-```
+## Tecnologias y dependencias
 
-La aplicacion utiliza Node.js como entorno de ejecucion, el paquete oficial `@azure/service-bus` para comunicarse con Azure Service Bus y `dotenv` para cargar variables de entorno desde un archivo local no versionado.
+El receptor usa Node.js, `@azure/service-bus` y `dotenv`.
 
-## Dependencias instaladas
-
-Las dependencias del receptor estan registradas en `receiver/package.json` y `receiver/package-lock.json`:
+Dependencias declaradas en `receiver/package.json`:
 
 ```json
-"dependencies": {
+{
   "@azure/service-bus": "^7.9.4",
   "dotenv": "^16.4.5"
 }
 ```
 
-Las versiones exactas quedan registradas en `package-lock.json`.
+Scripts disponibles:
 
-## Configuracion mediante variables de entorno
+```powershell
+npm.cmd run check
+npm.cmd run test:local
+npm.cmd start
+```
 
-El receptor lee exclusivamente estas variables:
+## Variables de entorno
+
+El receptor lee unicamente estas variables:
 
 ```env
-AZURE_SERVICE_BUS_RECEIVER_CONNECTION_STRING=
+AZURE_SERVICE_BUS_RECEIVER_CONNECTION_STRING=CADENA_SAS_LISTEN_FICTICIA_NO_REAL
 AZURE_SERVICE_BUS_QUEUE_NAME=academic-messages-queue
 ```
 
-La cadena de conexion debe pertenecer a una politica SAS con permiso unicamente `Listen`. No debe utilizarse `RootManageSharedAccessKey` ni una politica con permiso `Send`, porque el receptor no necesita colocar mensajes en la cola, solo consumirlos.
+El archivo real debe llamarse `receiver/.env`, debe existir solo localmente y no debe subirse al repositorio. La cadena de conexion debe pertenecer a una politica SAS con permiso unicamente `Listen`. No debe usarse `RootManageSharedAccessKey`.
 
-El archivo `receiver/.env` existe solo de forma local. No se incluye en Git (esta excluido mediante `.gitignore`) y no aparece en capturas ni en el repositorio.
+## Flujo de recepcion
 
-## Conexion con Azure Service Bus
+El flujo previsto es:
 
-El codigo importa `ServiceBusClient` desde el paquete oficial `@azure/service-bus`. Con la cadena de conexion local crea un cliente y luego un receptor asociado a la cola configurada, en modo `peekLock`:
+```text
+Azure Service Bus
+    -> cola academic-messages-queue
+    -> aplicacion receptora de Ivan
+    -> validacion del contrato
+    -> completeMessage o abandonMessage
+```
+
+El programa crea un cliente de Azure Service Bus y un receptor asociado a la cola configurada:
 
 ```js
 const sbClient = new ServiceBusClient(connectionString);
 const receiver = sbClient.createReceiver(queueName, { receiveMode: 'peekLock' });
 ```
 
-El modo `peekLock` significa que, al recibir un mensaje, este queda bloqueado temporalmente para otros consumidores pero no se elimina de la cola de inmediato. Solo se elimina definitivamente cuando el programa confirma explicitamente que lo proceso con exito (`completeMessage`). Si el programa fallara antes de confirmar, el mensaje volveria a estar disponible en la cola en lugar de perderse.
+## Uso de peekLock
 
-Antes de conectarse, el programa valida que existan las variables `AZURE_SERVICE_BUS_RECEIVER_CONNECTION_STRING` y `AZURE_SERVICE_BUS_QUEUE_NAME`. Si falta alguna, muestra un error y termina sin intentar conectarse, evitando fallos poco claros.
+El receptor mantiene `receiveMode: 'peekLock'`. Este modo bloquea temporalmente el mensaje recibido, pero no lo elimina de inmediato. El mensaje se elimina solo cuando el programa llama `completeMessage` despues de validarlo.
 
-## Recepcion de multiples mensajes (lectura continua)
+Este modo es adecuado para la demostracion porque evita perder mensajes si ocurre un error antes del procesamiento.
 
-A partir de la actualizacion del equipo, el emisor envia cinco mensajes consecutivos en lugar de uno solo. El receptor se adapto para leerlos todos en una misma ejecucion, sin perder ninguno:
+## Completar y abandonar mensajes
 
-```js
-while (seguirEscuchando) {
-  const messages = await receiver.receiveMessages(BATCH_SIZE, {
-    maxWaitTimeInMs: MAX_WAIT_TIME_MS,
-  });
-
-  if (messages.length === 0) {
-    seguirEscuchando = false;
-    break;
-  }
-
-  for (const msg of messages) {
-    // procesar cada mensaje individualmente
-  }
-}
-```
-
-El programa pide mensajes en lotes de hasta 10 (mas que suficiente para los 5 de la prueba). Si en un lote no llega ningun mensaje nuevo dentro de un tiempo de espera de 10 segundos, el programa entiende que ya no hay mas mensajes pendientes y detiene la escucha automaticamente. Este es el "mecanismo sencillo" acordado con el grupo para cerrar el receptor sin necesidad de detenerlo manualmente.
-
-Cada mensaje recibido se muestra completo en consola con su JSON, tal como llega:
+Un mensaje valido se procesa asi:
 
 ```js
-console.log(JSON.stringify(msg.body, null, 2));
+await receiver.completeMessage(msg);
 ```
 
-## Contador de mensajes procesados
-
-El receptor lleva dos contadores locales que se actualizan mensaje por mensaje:
+Un mensaje invalido se registra con sus motivos y se abandona:
 
 ```js
-let processedCount = 0;
-let errorCount = 0;
-const receivedUuids = [];
+await receiver.abandonMessage(msg);
 ```
 
-Cada vez que un mensaje se valida y se completa correctamente, `processedCount` aumenta y su `messageId` se agrega a `receivedUuids`. Si un mensaje falla la validacion, `errorCount` aumenta en su lugar. Al finalizar la escucha, el programa imprime un resumen con el total de mensajes procesados, el total de errores y la lista ordenada de los `messageId` recibidos, para poder compararla con los UUID que reporta Kenneth desde el emisor.
+`abandonMessage` devuelve el mensaje a la cola para evitar que se pierda silenciosamente. El receptor no usa `receiveAndDelete` y no completa mensajes antes de validarlos.
 
-## Validacion del mensaje
+Como consecuencia, un mensaje invalido puede volver a entregarse hasta que Azure Service Bus alcance el limite de entregas configurado para la cola. En una prueba real, si aparecen reintentos de un mensaje invalido, se debe revisar el motivo de rechazo y decidir con el equipo si se corrige el productor, se retira el mensaje de prueba o se deja que Azure lo mueva segun su configuracion.
 
-El contrato acordado por el equipo define seis campos obligatorios:
+## Validacion del contrato
 
-```json
-{
-  "messageId": "uuid-v4",
-  "sentAt": "fecha ISO 8601",
-  "sender": "AplicacionEmisora",
-  "subject": "Solicitud creada",
-  "description": "Se registro una nueva solicitud.",
-  "createdBy": "Kenneth"
-}
+La validacion se separo en `receiver/validator.js` para poder probarla sin Azure. El validador revisa:
+
+- Que el cuerpo sea un objeto JSON.
+- Que existan los campos obligatorios `messageId`, `sentAt`, `sender`, `subject`, `description` y `createdBy`.
+- Que los campos obligatorios sean cadenas de texto.
+- Que `messageId` tenga formato UUID v4.
+- Que `sentAt` sea una fecha ISO 8601 valida.
+- Que `sender` sea `AplicacionEmisora`.
+- Que `subject` y `description` sean cadenas no vacias.
+- Que `createdBy` sea `Kenneth`.
+- Que `contentType` sea `application/json`.
+- Que `body.messageId` coincida con la propiedad `messageId` recibida desde Azure Service Bus.
+
+El contrato compartido contiene valores concretos para `subject` y `description`, pero el emisor actual genera asuntos consecutivos `Mensaje 1 de 5` a `Mensaje 5 de 5`. Por esa ambiguedad, el receptor valida que `subject` y `description` sean cadenas no vacias sin imponer un valor literal. Esta decision debe confirmarse con el equipo antes de la fusion final.
+
+## Comparacion de identificadores
+
+Para cada mensaje valido, el receptor exige que:
+
+```text
+body.messageId == azure.messageId
 ```
 
-La funcion `validateMessage` verifica que ninguno de esos campos falte ni este vacio:
+En codigo, `azure.messageId` corresponde a la propiedad `messageId` del objeto recibido desde Azure Service Bus. Esta comparacion permite verificar que el identificador generado por el emisor es el mismo que viaja como propiedad del mensaje.
 
-```js
-const REQUIRED_FIELDS = ['messageId', 'sentAt', 'sender', 'subject', 'description', 'createdBy'];
+## Instalacion
 
-function validateMessage(body) {
-  const missing = REQUIRED_FIELDS.filter(
-    (field) => body[field] === undefined || body[field] === null || body[field] === ''
-  );
-  return { valid: missing.length === 0, missing };
-}
+Desde la carpeta `receiver/`:
+
+```powershell
+npm.cmd install
 ```
 
-Si un campo falta, el receptor no completa el mensaje: lo abandona con `receiver.abandonMessage(msg)`, lo que lo devuelve a la cola para que no se pierda silenciosamente, y muestra en consola cuales campos faltaron.
+## Pruebas locales sin Azure
 
-## Forma en que se completa el mensaje
+Las pruebas locales no usan credenciales ni se conectan a Azure:
 
-Un mensaje solo se marca como procesado despues de pasar la validacion:
-
-```js
-if (valid) {
-  await receiver.completeMessage(msg);
-  processedCount++;
-  receivedUuids.push(msg.body.messageId);
-}
+```powershell
+npm.cmd run check
+npm.cmd run test:local
 ```
 
-`completeMessage` le indica a Azure Service Bus que el mensaje fue procesado con exito y puede eliminarse definitivamente de la cola. Esto asegura que un mensaje nunca se de por completado si no cumplio con el formato acordado.
+`check` valida sintaxis de:
 
-## Manejo de errores
+- `index.js`
+- `validator.js`
+- `validar-mensajes-local.js`
 
-Si ocurre un error de conexion o durante la recepcion, el programa lo muestra en consola de forma legible, sin exponer la cadena de conexion. Los errores de validacion se muestran indicando exactamente que campos faltaron, y los errores al completar un mensaje se reportan por separado sin detener el resto del procesamiento.
+`test:local` ejecuta casos de validacion para:
 
-## Cierre de conexiones
+- Mensaje valido.
+- Cinco mensajes validos con UUID distintos.
+- Campo obligatorio ausente.
+- UUID incorrecto.
+- Fecha invalida.
+- `contentType` incorrecto.
+- Diferencia entre `body.messageId` y `azure.messageId`.
+- `sender` incorrecto.
+- `createdBy` incorrecto.
+- Razones comprensibles para cada rechazo.
 
-El receptor y el cliente de Azure se cierran dentro de un bloque `finally`, para garantizar que la conexion se cierre correctamente incluso si ocurre un error:
+Resultado local verificado en la rama de integracion:
+
+```text
+Validacion local del receptor correcta: contrato, UUID, fechas, contentType e identificadores verificados.
+```
+
+## Ejecucion con Azure
+
+Cuando Francisco o la persona responsable de Azure entregue la cadena SAS `Listen`, crear localmente `receiver/.env` a partir de `receiver/.env.example` y ejecutar:
+
+```powershell
+cd receiver
+npm.cmd start
+```
+
+Si faltan variables, el receptor termina con un error controlado antes de conectarse:
+
+```text
+Error: faltan variables de entorno. Verifica receiver/.env
+```
+
+## Cierre correcto de recursos
+
+El receptor cierra `receiver` y `ServiceBusClient` dentro de `finally`, para liberar recursos aun si ocurre un error durante la recepcion:
 
 ```js
 finally {
@@ -152,45 +176,54 @@ finally {
 }
 ```
 
-## Procedimiento de prueba
+## Que puede probarse sin Azure
 
-[COMPLETAR MAÑANA: describir aqui la prueba real realizada, por ejemplo:]
+Sin credenciales se puede probar:
 
-```text
-1. Francisco coloco manualmente / Kenneth envio con el emisor N mensajes de prueba en academic-messages-queue.
-2. Se ejecuto: node index.js (dentro de la carpeta receiver)
-3. El receptor se conecto correctamente a Azure Service Bus.
-4. Se recibieron los N mensajes, mostrando su JSON completo en consola.
-5. Se validaron los N mensajes contra el contrato acordado.
-6. Se completaron los N mensajes validos.
-7. Se confirmo en Azure Portal que la cola quedo con cero mensajes activos.
-```
+- Instalacion de dependencias.
+- Sintaxis del receptor.
+- Validacion local del contrato.
+- Rechazo de mensajes invalidos.
+- Compatibilidad local con los objetos generados por el emisor.
+- Deteccion controlada de variables faltantes.
 
-## Resultado real obtenido
+## Que depende de la infraestructura
 
-[COMPLETAR MAÑANA: pegar aqui el resumen final que muestra la consola, por ejemplo el bloque de "Resumen final" con processedCount, errorCount y la lista de UUID recibidos]
+Queda pendiente:
 
-## Evidencias
+- Crear o confirmar la cola `academic-messages-queue`.
+- Confirmar politica SAS `Listen` para Ivan.
+- Ejecutar una prueba real recibiendo cinco mensajes enviados por Kenneth.
+- Comparar los cinco UUID enviados y recibidos.
+- Confirmar en Azure Portal que la cola queda sin mensajes activos despues del consumo.
 
-Guardadas en `evidence/receiver/`:
+## Evidencias pendientes
 
-- [ ] Captura de la consola recibiendo los mensajes.
-- [ ] JSON recibido (de al menos un mensaje, o los cinco).
-- [ ] Confirmacion del procesamiento (resumen final con contador).
-- [ ] Evidencia de la cola despues del consumo (Azure Portal, cero mensajes activos).
-- [ ] Fragmento importante del codigo.
+No se fabricaron evidencias. Cuando se ejecute la prueba real, Ivan debe capturar sin mostrar credenciales:
+
+- Consola del receptor mostrando los cinco mensajes recibidos.
+- Resumen final con mensajes procesados y UUID.
+- Evidencia del portal antes del consumo con mensajes activos.
+- Evidencia del portal despues del consumo con la cola vacia.
+- Fragmento del codigo que muestra `peekLock`, `completeMessage` y `abandonMessage`.
 
 ## Inconvenientes y soluciones
 
-[COMPLETAR MAÑANA: por ejemplo, si hubo que instalar Node.js, resolver el bloqueo de ejecucion de scripts de PowerShell (Set-ExecutionPolicy), esperar la cadena de conexion de Francisco, etc.]
+PENDIENTE DE CONFIRMACION PERSONAL POR IVAN.
+
+En esta rama de integracion solo se puede afirmar tecnicamente que faltaba una prueba local del receptor y que se agrego un validador reutilizable sin depender de Azure.
 
 ## Conclusiones parciales
 
-[COMPLETAR MAÑANA: reflexion breve sobre lo aprendido: manejo de peekLock, validacion de contratos, lectura de multiples mensajes en una cola, etc.]
+PENDIENTE DE CONFIRMACION PERSONAL POR IVAN.
+
+Como conclusion tecnica verificable, el receptor queda preparado para validar el contrato con mayor precision y para evitar la eliminacion silenciosa de mensajes invalidos.
 
 ## Uso de IA
 
-[COMPLETAR: indicar si se uso una IA como apoyo, para que exactamente, y aclarar que no se compartieron credenciales ni cadenas de conexion reales durante su uso]
+PENDIENTE DE CONFIRMACION PERSONAL POR IVAN.
+
+Las correcciones de validacion, pruebas locales y esta documentacion fueron preparadas como trabajo colaborativo de integracion en la rama local `correccion/integracion-final-equipo`. No deben atribuirse como trabajo individual de Ivan hasta que el las revise y acepte.
 
 ## Referencias
 
